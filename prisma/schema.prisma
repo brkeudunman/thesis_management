@@ -1,0 +1,38 @@
+// Ablation study tree — see plan at .claude/plans
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Study {
+  id        String   @id @default(cuid())
+  title     String
+  summary   String?
+  notes     String   @default("")
+  status    String   @default("done")
+  parentId  String?
+  parent    Study?   @relation("Tree", fields: [parentId], references: [id])
+  children  Study[]  @relation("Tree")
+  metrics   Metric[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+}
+
+model Metric {
+  id      String  @id @default(cuid())
+  studyId String
+  study   Study   @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  name    String
+  value   Float
+  unit    String?
+  order   Int     @default(0)
+
+  @@index([studyId])
+}
