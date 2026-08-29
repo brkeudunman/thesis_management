@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import MetricDelta from "./MetricDelta";
@@ -185,9 +186,22 @@ export default function DetailPanel({
         ) : null}
 
         <p className="mt-8 text-[11px] text-muted">
-          Updated {new Date(study.updatedAt).toLocaleString()}
+          Updated <LocalTime iso={study.updatedAt} />
         </p>
       </div>
     </div>
   );
+}
+
+/**
+ * Rendered after mount only: the server has no idea about the reader's locale
+ * or timezone, so formatting during SSR breaks hydration.
+ */
+function LocalTime({ iso }: { iso: string }) {
+  const text = useSyncExternalStore(
+    () => () => {},
+    () => new Date(iso).toLocaleString(),
+    () => iso.slice(0, 10),
+  );
+  return <span suppressHydrationWarning>{text}</span>;
 }

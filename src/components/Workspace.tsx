@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import DetailPanel from "./DetailPanel";
 import StudyForm from "./StudyForm";
@@ -101,6 +102,12 @@ export default function Workspace({ initialStudies }: { initialStudies: Study[] 
           >
             New root study
           </button>
+          <Link
+            href="/import"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-bg"
+          >
+            Import JSON
+          </Link>
           <a
             href="/api/export?format=md"
             className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-bg"

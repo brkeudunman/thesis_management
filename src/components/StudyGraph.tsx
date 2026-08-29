@@ -102,7 +102,6 @@ export default function StudyGraph({ studies, selectedId, onSelect }: Props) {
       edgesFocusable={false}
       fitView
       fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-      proOptions={{ hideAttribution: true }}
       className="bg-bg"
     >
       <Background gap={20} size={1} color="var(--line)" />

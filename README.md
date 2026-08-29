@@ -26,6 +26,10 @@ npm run dev          # http://localhost:3000
   studies that block it. Only leaves are deletable, behind a confirm.
 - **Export** — `Export .md` writes the whole tree as a nested markdown outline with
   metric tables, ready to paste into the thesis. `Export .json` dumps it nested.
+- **Import** — `/import` takes a JSON file of nested studies. It carries a prompt you
+  can paste into Claude inside your ablation repository; the JSON that comes back
+  imports as-is. Import either adds to the tree (optionally under an existing study)
+  or replaces everything, behind a confirm. `Export .json` round-trips through it.
 
 ## Layout
 
@@ -36,10 +40,13 @@ npm run dev          # http://localhost:3000
 | `src/lib/tree.ts` | forest building, subtree collection (cycle guard) |
 | `src/lib/metrics.ts` | value formatting, delta vs parent |
 | `src/lib/export.ts` | markdown / JSON serialisation |
+| `src/lib/importSchema.ts` | lenient JSON parsing and validation for imports |
+| `src/lib/importSpec.ts` | the prompt handed to Claude to produce that JSON |
 | `src/app/api/studies` | REST: list, create, read, update, delete |
 | `src/components/StudyGraph.tsx` | React Flow canvas + dagre layout |
 | `src/components/DetailPanel.tsx` | right-hand panel |
 | `src/components/StudyForm.tsx` | create / edit form |
+| `src/components/ImportPanel.tsx` | the `/import` page |
 
 ## Scripts
 

@@ -52,11 +52,6 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* React Flow surface should inherit the app background, not its own white. */
-.react-flow__attribution {
-  display: none;
-}
-
 /* Rendered markdown in the detail panel. */
 .markdown {
   font-size: 0.875rem;
