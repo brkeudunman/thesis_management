@@ -13,7 +13,7 @@ export const metricInput = z.object({
     .transform((v) => (v ? v : null)),
 });
 
-export const studyCreate = z.object({
+const studyFields = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   summary: z
     .string()
@@ -22,13 +22,21 @@ export const studyCreate = z.object({
     .optional()
     .nullable()
     .transform((v) => (v ? v : null)),
-  notes: z.string().max(50_000).default(""),
-  status: z.enum(STATUSES).default("done"),
-  parentId: z.string().nullable().default(null),
-  metrics: z.array(metricInput).max(50).default([]),
+  notes: z.string().max(50_000),
+  status: z.enum(STATUSES),
+  parentId: z.string().nullable(),
+  metrics: z.array(metricInput).max(50),
 });
 
-export const studyUpdate = studyCreate.partial();
+export const studyCreate = studyFields.extend({
+  notes: studyFields.shape.notes.default(""),
+  status: studyFields.shape.status.default("done"),
+  parentId: studyFields.shape.parentId.default(null),
+  metrics: studyFields.shape.metrics.default([]),
+});
+
+// Defaults belong only to creation; omitted PATCH fields must remain unchanged.
+export const studyUpdate = studyFields.partial();
 
 export type StudyCreateInput = z.infer<typeof studyCreate>;
 export type StudyUpdateInput = z.infer<typeof studyUpdate>;

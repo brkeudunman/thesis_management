@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { STATUSES, type Status } from "./types";
+import { studyCreate } from "./schemas";
 
 /** Loose shape: anything Claude reasonably emits should parse. */
 export type RawNode = {
@@ -86,6 +87,12 @@ export function normalize(nodes: RawNode[]): CleanNode[] {
       }
       return { name, value: m.value, unit: (m.unit ?? "").trim() || null };
     });
+    const validatedMetrics = studyCreate.shape.metrics.safeParse(metrics);
+    if (!validatedMetrics.success) {
+      throw new ImportError(
+        `Invalid metrics in "${where}": ${validatedMetrics.error.issues[0]?.message}`,
+      );
+    }
 
     return {
       title: title.slice(0, 200),
@@ -94,7 +101,7 @@ export function normalize(nodes: RawNode[]): CleanNode[] {
         ? (status as Status)
         : "done",
       notes: (node.notes ?? "").slice(0, 50_000),
-      metrics,
+      metrics: validatedMetrics.data,
       children: (node.children ?? []).map((c) => visit(c, where)),
     };
   };
@@ -108,4 +115,35 @@ export function normalize(nodes: RawNode[]): CleanNode[] {
 
 export function countNodes(nodes: CleanNode[]): number {
   return nodes.reduce((sum, n) => sum + 1 + countNodes(n.children), 0);
+}
+
+export type ImportPreview =
+  | { ok: true; roots: string[]; count: number }
+  | { ok: false; message: string }
+  | null;
+
+/** Use the server's validation before enabling an import in the UI. */
+export function inspectImport(text: string): ImportPreview {
+  if (!text.trim()) return null;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return { ok: false, message: "That is not valid JSON." };
+  }
+
+  try {
+    const parsed = importPayload.safeParse(payload);
+    if (!parsed.success) {
+      return { ok: false, message: "The JSON does not match the import format." };
+    }
+    const clean = normalize(parsed.data);
+    return { ok: true, roots: clean.map((node) => node.title), count: countNodes(clean) };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof ImportError ? error.message : "The JSON does not match the import format.",
+    };
+  }
 }

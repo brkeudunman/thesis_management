@@ -131,6 +131,7 @@ export default function Workspace({ initialStudies }: { initialStudies: Study[] 
         <aside className="w-[420px] shrink-0 overflow-hidden bg-panel">
           {mode.kind === "create" ? (
             <StudyForm
+              key={`create:${mode.parentId ?? "root"}`}
               studies={studies}
               initial={null}
               defaultParentId={mode.parentId}
@@ -139,6 +140,7 @@ export default function Workspace({ initialStudies }: { initialStudies: Study[] 
             />
           ) : mode.kind === "edit" && selected ? (
             <StudyForm
+              key={`edit:${selected.id}`}
               studies={studies}
               initial={selected}
               defaultParentId={selected.parentId}
