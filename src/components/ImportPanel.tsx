@@ -4,58 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IMPORT_PROMPT } from "@/lib/importSpec";
+import { inspectImport } from "@/lib/importSchema";
 import type { Study } from "@/lib/types";
 
 type Props = { studies: Study[] };
-
-type Preview =
-  | { ok: true; roots: string[]; count: number }
-  | { ok: false; message: string }
-  | null;
-
-/** Count and outline the tree client-side so mistakes surface before submitting. */
-function inspect(text: string): Preview {
-  if (!text.trim()) return null;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    return { ok: false, message: `Not valid JSON — ${(error as Error).message}` };
-  }
-
-  const list = Array.isArray(parsed)
-    ? parsed
-    : typeof parsed === "object" &&
-        parsed !== null &&
-        Array.isArray((parsed as { studies?: unknown }).studies)
-      ? ((parsed as { studies: unknown[] }).studies as unknown[])
-      : null;
-
-  if (!list) {
-    return {
-      ok: false,
-      message: 'Expected an array of studies, or { "studies": [ ... ] }.',
-    };
-  }
-  if (list.length === 0) return { ok: false, message: "No studies in the file." };
-
-  let count = 0;
-  const walk = (node: unknown) => {
-    count += 1;
-    const children = (node as { children?: unknown }).children;
-    if (Array.isArray(children)) children.forEach(walk);
-  };
-  list.forEach(walk);
-
-  return {
-    ok: true,
-    count,
-    roots: list.map(
-      (n) => (n as { title?: string }).title?.trim() || "(untitled study)",
-    ),
-  };
-}
 
 export default function ImportPanel({ studies }: Props) {
   const router = useRouter();
@@ -67,7 +19,7 @@ export default function ImportPanel({ studies }: Props) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const preview = useMemo(() => inspect(text), [text]);
+  const preview = useMemo(() => inspectImport(text), [text]);
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

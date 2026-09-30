@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatValue } from "@/lib/metrics";
 import { collectSubtreeIds } from "@/lib/tree";
 import { STATUSES, type Study } from "@/lib/types";
 
@@ -36,7 +35,7 @@ export default function StudyForm({
     initial && initial.metrics.length
       ? initial.metrics.map((m) => ({
           name: m.name,
-          value: formatValue(m.value),
+          value: String(m.value),
           unit: m.unit ?? "",
         }))
       : [{ ...emptyRow }],

@@ -8,7 +8,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const parsed = studyCreate.safeParse(await request.json());
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "That is not valid JSON." }, { status: 400 });
+  }
+  const parsed = studyCreate.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid study" },

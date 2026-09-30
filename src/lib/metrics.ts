@@ -17,13 +17,15 @@ export function formatMetric(metric: Metric): string {
 
 export type Delta = { value: number; text: string; sign: -1 | 0 | 1 };
 
-/** Difference against the same-named metric on the parent, or null if absent. */
+/** Difference against the same-named metric with matching units on the parent. */
 export function deltaVsParent(
   metric: Metric,
   parent: Study | null | undefined,
 ): Delta | null {
   if (!parent) return null;
-  const match = parent.metrics.find((m) => m.name === metric.name);
+  const match = parent.metrics.find(
+    (m) => m.name === metric.name && m.unit === metric.unit,
+  );
   if (!match) return null;
 
   const value = metric.value - match.value;
