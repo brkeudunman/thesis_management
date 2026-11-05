@@ -1,0 +1,463 @@
+[
+  {
+    "id": "cmw402j6d00003ouniasrlz51",
+    "title": "01 Baseline: all raw features (2020)",
+    "summary": "All raw categorical and continuous features, no SHAP selection and no HUIM patterns. This is the control for the 2020 feature-set ablations.",
+    "status": "done",
+    "notes": "## Setup\n\n- Data: `Flight_tab_2020.csv`, split by day of month (train `FL_DAY <= 9`, val 10–12, test > 12)\n- Target: `|ARR_DELAY| > 15 min`\n- Excluded columns: `FLIGHTS`, `FL_YEAR`, `FL_MONTH`\n- Models: `mambular` MLP, AutoInt, ResNet, FT-Transformer\n- Phase 1: `RandomizedSearchCV` on 10% of train (`n_iter=10`, `cv=3`, d_model {64,128,256}, n_layers {2,6,10}, lr {1e-5,1e-4,1e-3})\n- Phase 2: **retrained on 100% of train** (`phase2_frac: 1.0`, `val_frac: 1.0`), batch 4096, patience 3, GPU `16-mixed`\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/01_baseline_all_features/run.py\n```\n\n**Finding:** this is the reference point. AutoInt is the best model (AUC 0.583) and ResNet the weakest (0.536). All models are only modestly above chance, which is consistent with weakly predictive features.\n\n⚠️ Phase 2 here uses the full train set. Ablations 02–06 use only 10% (`phase2_frac: 0.1`), so comparisons against this baseline are confounded by training-set size.",
+    "metrics": [
+      {
+        "name": "AUC (MLP)",
+        "value": 0.5527,
+        "unit": null
+      },
+      {
+        "name": "accuracy (MLP)",
+        "value": 0.5891,
+        "unit": null
+      },
+      {
+        "name": "AUC (AutoInt)",
+        "value": 0.5826,
+        "unit": null
+      },
+      {
+        "name": "accuracy (AutoInt)",
+        "value": 0.6045,
+        "unit": null
+      },
+      {
+        "name": "AUC (ResNet)",
+        "value": 0.5365,
+        "unit": null
+      },
+      {
+        "name": "accuracy (ResNet)",
+        "value": 0.5862,
+        "unit": null
+      },
+      {
+        "name": "AUC (FTTransformer)",
+        "value": 0.5552,
+        "unit": null
+      },
+      {
+        "name": "accuracy (FTTransformer)",
+        "value": 0.5886,
+        "unit": null
+      }
+    ],
+    "children": [
+      {
+        "id": "cmw402j6g00093ounjm5unz9m",
+        "title": "02 SHAP only",
+        "summary": "Top-10 SHAP-ranked features only, with no HUIM patterns. Isolates the effect of SHAP feature selection compared with raw features.",
+        "status": "planned",
+        "notes": "## Setup\n\n- 2020 data, same split and target as the baseline\n- Features: top `10` from `../../SHAP_HUIM/shap_feature_importance.csv`\n- Phase 2 on 10% of train (`phase2_frac: 0.1`, `val_frac: 0.1`), batch 2048, patience 5\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/02_shap_only/run.py\n```\n\n**Status:** config and `run.py` exist, but there is no `results.csv`, either in the working tree or in git history. The required `exp/Tab_exp/SHAP_HUIM/` hand-off directory is also missing, so this arm has not been run yet.",
+        "metrics": [],
+        "children": []
+      },
+      {
+        "id": "cmw402j6j000a3ounuzjyuzju",
+        "title": "03 SHAP + HUIM (proposed method)",
+        "summary": "Top-10 SHAP features plus the top-20 HUIM delay-driver and top-20 delay-protector patterns as binary features.",
+        "status": "done",
+        "notes": "## Setup\n\n- 2020 data, same split and target as the baseline\n- Features: top `10` SHAP features + top `20` driver + top `20` protector itemsets from `../../SHAP_HUIM/` (mined on 2024 data). Continuous features are matched to pattern items with `KBinsDiscretizer` (5 bins).\n- Phase 2 on 10% of train (`phase2_frac: 0.1`, `val_frac: 0.1`), batch 2048, patience 5\n- Models: MLP, AutoInt, ResNet (no FT-Transformer)\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/03_shap_plus_huim/run.py\n```\n\n**Finding:** compared with the baseline, MLP gains about 1.6 AUC points and ResNet about 1.7, while AutoInt loses about 1.2 (0.583 → 0.570). This was achieved with 10% of the training data, against a baseline trained on 100%.",
+        "metrics": [
+          {
+            "name": "AUC (MLP)",
+            "value": 0.569,
+            "unit": null
+          },
+          {
+            "name": "accuracy (MLP)",
+            "value": 0.5957,
+            "unit": null
+          },
+          {
+            "name": "AUC (AutoInt)",
+            "value": 0.5705,
+            "unit": null
+          },
+          {
+            "name": "accuracy (AutoInt)",
+            "value": 0.6021,
+            "unit": null
+          },
+          {
+            "name": "AUC (ResNet)",
+            "value": 0.5534,
+            "unit": null
+          },
+          {
+            "name": "accuracy (ResNet)",
+            "value": 0.5934,
+            "unit": null
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": "cmw402j6l000h3ounc85s9nj9",
+        "title": "04 HUIM only",
+        "summary": "Only the HUIM binary pattern columns (top-20 drivers and top-20 protectors), with no original features.",
+        "status": "done",
+        "notes": "## Setup\n\n- 2020 data, same split and target as the baseline\n- Features: top `20` driver + top `20` protector patterns read directly from `shap_huim_extractions/01_2024_baseline/csvs/`, `n_bins: 5`, `exclude_cols: []`\n- Phase 2 on 10% of train, batch 2048, patience 5\n- Best hyperparameters (`best_params.json`): MLP d_model 128 / 10 layers / lr 1e-3; ResNet d_model 128 / 10 layers / lr 1e-5\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/04_huim_only/run.py\n```\n\n**Finding:** every model drops to about 0.52 AUC, and accuracy is close to the majority-class rate (about 0.58). Mined combinatorial patterns alone miss the individual feature effects and cannot replace the raw features.",
+        "metrics": [
+          {
+            "name": "AUC (MLP)",
+            "value": 0.5234,
+            "unit": null
+          },
+          {
+            "name": "accuracy (MLP)",
+            "value": 0.5801,
+            "unit": null
+          },
+          {
+            "name": "AUC (AutoInt)",
+            "value": 0.5174,
+            "unit": null
+          },
+          {
+            "name": "accuracy (AutoInt)",
+            "value": 0.5802,
+            "unit": null
+          },
+          {
+            "name": "AUC (ResNet)",
+            "value": 0.5213,
+            "unit": null
+          },
+          {
+            "name": "accuracy (ResNet)",
+            "value": 0.5797,
+            "unit": null
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": "cmw402j6o000o3ouni0mtlcc7",
+        "title": "05 LLM-Select feature scoring",
+        "summary": "LLM-Score feature ranking (taekb/llm-select) with local Ollama qwen2.5:7b, in a data-free and a data-informed prompt variant, compared with SHAP and HUIM. No model training.",
+        "status": "done",
+        "notes": "## Setup\n\n- Method: LLM-Score (Jeong, Lipton & Ravikumar, TMLR 2025). The LLM rates each feature's importance on a 0–1 scale.\n- Model: `qwen2.5:7b` via local Ollama, temperature 0.5, 3 repeats per feature (mean ± std)\n- Variants: **data-free** (feature name, description and task only) and **data-informed** (the same plus 100 raw 2020 train rows from `output/llm_sample_raw.csv`)\n- Compared against 2024 SHAP importances and HUIM itemsets (`compare.py` → `output/comparison_report.md`)\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/05_baseline_100_data/run.py\nuv run python exp/Tab_exp/ablations/05_baseline_100_data/compare.py\n```\n\n**Finding:** the LLM ranking does not agree with SHAP (Spearman ρ −0.05 data-free, −0.13 data-informed). The top-10 overlap with SHAP has Jaccard 0.33. The two variants select an identical top-10 and differ only in ordering. The largest gaps: SHAP ranks `O_LONGITUDE` #1 while the LLM ranks it #15, and the LLM ranks `ORIGIN_INDEX` #1 while SHAP ranks it #10.\n\nCaveats: SHAP and HUIM were mined on 2024 data while the LLM sample rows are from 2020, and a 7B model is much weaker than the paper's GPT-4.",
+        "metrics": [
+          {
+            "name": "Spearman vs SHAP (data-free)",
+            "value": -0.054,
+            "unit": null
+          },
+          {
+            "name": "Spearman vs SHAP (data-informed)",
+            "value": -0.127,
+            "unit": null
+          },
+          {
+            "name": "top-10 Jaccard vs SHAP",
+            "value": 0.33,
+            "unit": null
+          },
+          {
+            "name": "top-10 Jaccard vs HUIM (data-free)",
+            "value": 0.43,
+            "unit": null
+          }
+        ],
+        "children": [
+          {
+            "id": "cmw402j6q000t3ounjj6jogfs",
+            "title": "06 LLM top-10 features",
+            "summary": "Train only on the top-10 LLM-selected features. No SHAP and no HUIM.",
+            "status": "done",
+            "notes": "## Setup\n\n- 2020 data. Training settings are identical to 02/03 (phase 2 on 10% of train, batch 2048, patience 5).\n- Features: top `10` from `llm_feature_importance_datafree.csv`: ORIGIN_INDEX, O_PRCP, O_WSPD, OP_CARRIER, CRS_DEP_TIME_MIN, DEST_INDEX, FL_WEEK, CRS_ELAPSED_TIME, CRS_ARR_TIME_MIN, D_PRCP\n- At top-10 the data-free and data-informed sets are **identical**, so this one arm covers both variants.\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/06_llm_top10/run.py\n```\n\n**Finding:** AutoInt reaches 0.573 AUC, close to the full-feature baseline (0.583), and has the best accuracy of any arm (0.606). MLP and ResNet stay near chance (about 0.52 AUC) and predict close to the majority class.",
+            "metrics": [
+              {
+                "name": "AUC (MLP)",
+                "value": 0.5182,
+                "unit": null
+              },
+              {
+                "name": "accuracy (MLP)",
+                "value": 0.5764,
+                "unit": null
+              },
+              {
+                "name": "AUC (AutoInt)",
+                "value": 0.5728,
+                "unit": null
+              },
+              {
+                "name": "accuracy (AutoInt)",
+                "value": 0.6061,
+                "unit": null
+              },
+              {
+                "name": "AUC (ResNet)",
+                "value": 0.5153,
+                "unit": null
+              },
+              {
+                "name": "accuracy (ResNet)",
+                "value": 0.5762,
+                "unit": null
+              }
+            ],
+            "children": []
+          },
+          {
+            "id": "cmw402j6t00103ounsbmlsstj",
+            "title": "06.1 LLM top-5 (data-free)",
+            "summary": "Top-5 features from the data-free LLM prompt. This is where the two prompt variants first diverge.",
+            "status": "done",
+            "notes": "## Setup\n\n- 2020 data. Training settings are identical to 02/03.\n- Features: ORIGIN_INDEX, O_PRCP, O_WSPD, OP_CARRIER, CRS_DEP_TIME_MIN (from `llm_feature_importance_datafree.csv`)\n- Shares only ORIGIN_INDEX and O_PRCP with the data-informed top-5.\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/06_1_llm_top5_datafree/run.py\n```\n\n**Finding:** MLP and ResNet collapse to a constant prediction (AUC 0.500, accuracy equal to the 0.576 majority rate). AutoInt alone keeps some signal (0.555 AUC).",
+            "metrics": [
+              {
+                "name": "AUC (MLP)",
+                "value": 0.5,
+                "unit": null
+              },
+              {
+                "name": "accuracy (MLP)",
+                "value": 0.5763,
+                "unit": null
+              },
+              {
+                "name": "AUC (AutoInt)",
+                "value": 0.5552,
+                "unit": null
+              },
+              {
+                "name": "accuracy (AutoInt)",
+                "value": 0.5949,
+                "unit": null
+              },
+              {
+                "name": "AUC (ResNet)",
+                "value": 0.5,
+                "unit": null
+              },
+              {
+                "name": "accuracy (ResNet)",
+                "value": 0.5763,
+                "unit": null
+              }
+            ],
+            "children": []
+          },
+          {
+            "id": "cmw402j6y00173oun5h3il4z4",
+            "title": "06.2 LLM top-5 (data-informed)",
+            "summary": "Top-5 features from the data-informed LLM prompt (100 sample rows shown in context). Paired with 06.1.",
+            "status": "done",
+            "notes": "## Setup\n\n- 2020 data. Training settings are identical to 02/03.\n- Features: CRS_ELAPSED_TIME, ORIGIN_INDEX, CRS_ARR_TIME_MIN, O_PRCP, FL_WEEK (from `llm_feature_importance_datainformed.csv`; FL_WEEK ties with DEST_INDEX at 0.633)\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/06_2_llm_top5_datainformed/run.py\n```\n\n**Finding:** this arm is essentially the same as 06.1. MLP and ResNet are about 0.50–0.51 AUC and AutoInt 0.550. Showing the LLM sample rows did not produce a more useful top-5.",
+            "metrics": [
+              {
+                "name": "AUC (MLP)",
+                "value": 0.5019,
+                "unit": null
+              },
+              {
+                "name": "accuracy (MLP)",
+                "value": 0.577,
+                "unit": null
+              },
+              {
+                "name": "AUC (AutoInt)",
+                "value": 0.5502,
+                "unit": null
+              },
+              {
+                "name": "accuracy (AutoInt)",
+                "value": 0.5907,
+                "unit": null
+              },
+              {
+                "name": "AUC (ResNet)",
+                "value": 0.5062,
+                "unit": null
+              },
+              {
+                "name": "accuracy (ResNet)",
+                "value": 0.5771,
+                "unit": null
+              }
+            ],
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cmw402j70001e3oundjojeiv1",
+    "title": "Representation bake-off",
+    "summary": "Compares tabular representations, each feeding one fixed MLP head, on a 50k multi-year sample. Only the input embedding varies.",
+    "status": "done",
+    "notes": "## Setup\n\n- Data: 50k rows stratified by year and label over 2016–2024 (`prep/build_sample.py`, seed 42)\n- Split by `FL_DAY`: train ≤ 9 / val 10–12 / test > 12 (14,690 / 4,985 / 30,325 rows)\n- Target: `|ARR_DELAY| > 15` (40.8% positive)\n- Fixed head: plain PyTorch MLP `[256,128]`, dropout 0.1, Adam 1e-3, batch 2048, up to 50 epochs, early stopping on val AUC (patience 5)\n- Metrics: test AUC (primary), F1-macro and accuracy, mean ± std over seeds [42, 43, 44]\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/representation_bakeoff/prep/build_tab_years.py\nuv run python exp/Tab_exp/ablations/representation_bakeoff/prep/build_sample.py\nuv run python exp/Tab_exp/ablations/representation_bakeoff/run_bakeoff.py\n```\n\n**Finding:** skrub `TableVectorizer` is the best representation. The ceiling is about 0.60 AUC.\n\nThis study uses a different sample and head from the 2020 `mambular` ablations, so its numbers are not directly comparable with them.",
+    "metrics": [],
+    "children": [
+      {
+        "id": "cmw402j73001f3ountkz99oyl",
+        "title": "B: skrub TableVectorizer + MLP",
+        "summary": "skrub TableVectorizer(cardinality_threshold=40) + StandardScaler, fit on train only. 95 dimensions.",
+        "status": "done",
+        "notes": "## Setup\n\n- Categoricals are cast to `str`. `TableVectorizer(cardinality_threshold=40)` and `StandardScaler` are fit on train rows only.\n- Code: `embeddings/embed_skrub.py`\n\n**Finding:** this is the winning representation and the reference row for its children. It beats SentenceTransformer by about 2.6 AUC points with low variance, and it is the most compact matrix at 95 dimensions.",
+        "metrics": [
+          {
+            "name": "AUC",
+            "value": 0.5982,
+            "unit": null
+          },
+          {
+            "name": "AUC std",
+            "value": 0.0014,
+            "unit": null
+          },
+          {
+            "name": "F1-macro",
+            "value": 0.5371,
+            "unit": null
+          },
+          {
+            "name": "accuracy",
+            "value": 0.6005,
+            "unit": null
+          },
+          {
+            "name": "dim",
+            "value": 95,
+            "unit": null
+          }
+        ],
+        "children": [
+          {
+            "id": "cmw402j75001l3oun28nw2kiq",
+            "title": "D: skrub + HUIM delay-cost patterns",
+            "summary": "skrub matrix concatenated with 40 HUIM delay-cost pattern columns (20 drivers + 20 protectors). 135 dimensions.",
+            "status": "done",
+            "notes": "## Setup\n\n- Synthetic utility: in delayed flights, each item carries `|ARR_DELAY|`; in on-time flights it carries `15 − |ARR_DELAY|`.\n- PAMI EFIM, mined per class on train rows only, with minUtil at the 98th percentile, patterns of at most 3 items, at most 4,000 transactions per class, the top 200 kept, and `OP_CARRIER_FL_NUM` excluded as an item\n- Continuous features are binned with `KBinsDiscretizer` (5 quantile bins, fit on train)\n\n## Command\n\n```bash\nuv run python exp/Tab_exp/ablations/representation_bakeoff/huim/mine.py\nuv run python exp/Tab_exp/ablations/representation_bakeoff/run_hybrid.py\n```\n\n**Finding:** this is a negative result. AUC drops 0.6 points (0.5919 vs 0.5982), which is about 3.5σ and outside seed noise. F1 is down a marginal 1.1σ and accuracy is within noise. The patterns add nothing that skrub does not already encode. The top delay driver is `CRS_DEP_TIME_MIN=VeryLow + D_LATITUDE=VeryHigh`.",
+            "metrics": [
+              {
+                "name": "AUC",
+                "value": 0.5919,
+                "unit": null
+              },
+              {
+                "name": "AUC std",
+                "value": 0.0012,
+                "unit": null
+              },
+              {
+                "name": "F1-macro",
+                "value": 0.5282,
+                "unit": null
+              },
+              {
+                "name": "accuracy",
+                "value": 0.5991,
+                "unit": null
+              },
+              {
+                "name": "dim",
+                "value": 135,
+                "unit": null
+              }
+            ],
+            "children": []
+          },
+          {
+            "id": "cmw402j79001r3ounmpydowvu",
+            "title": "skrub + TabFM head",
+            "summary": "Keep the skrub representation and replace the MLP head with Google's pretrained TabFM tabular foundation model, which learns from the train rows in context.",
+            "status": "done",
+            "notes": "## Setup\n\n- Same sample, split, skrub matrix (95 dimensions) and seeds as B. Only the head changes.\n- TabFM (`google/tabfm-1.0.0-pytorch`, non-commercial license). No weights are trained: the train rows serve as the in-context examples, with `n_estimators=32` ensemble members and the seed passed as `random_state`.\n- Test rows are predicted in chunks of 4,096. Run on a Colab GPU at about 1,290 s per seed. The installed `tabfm` did not support `cache_context`.\n\n## Command\n\nRun all cells of `exp/Tab_exp/ablations/skrub_head_ablation/skrub_head_ablation.ipynb` (Colab).\n\n**Finding:** this is the best result in the repo. AUC rises by 3.5 points over the MLP head (0.6336 vs 0.5982, about 35σ), and F1 and accuracy improve as well. Val AUC is 0.6246. The seed spread is tiny because the seed only shuffles the ensemble.",
+            "metrics": [
+              {
+                "name": "AUC",
+                "value": 0.6336,
+                "unit": null
+              },
+              {
+                "name": "AUC std",
+                "value": 0.0001,
+                "unit": null
+              },
+              {
+                "name": "F1-macro",
+                "value": 0.5451,
+                "unit": null
+              },
+              {
+                "name": "accuracy",
+                "value": 0.6168,
+                "unit": null
+              },
+              {
+                "name": "val AUC",
+                "value": 0.6246,
+                "unit": null
+              },
+              {
+                "name": "dim",
+                "value": 95,
+                "unit": null
+              },
+              {
+                "name": "time per seed",
+                "value": 1290,
+                "unit": "s"
+              }
+            ],
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "cmw402j7d001z3ounlt5o5pdp",
+        "title": "A: SentenceTransformer (MiniLM) + MLP",
+        "summary": "Rows serialised to text and embedded with all-MiniLM-L6-v2. 384 dimensions.",
+        "status": "done",
+        "notes": "## Setup\n\n- `all-MiniLM-L6-v2` sentence embeddings of the text-serialised rows\n- Code: `embeddings/embed_sentence_transformer.py`\n\n**Finding:** this is the weakest representation (−2.6 AUC points vs skrub) and has the highest variance (its F1 std is 0.041). Turning rows into text lets the tokenizer mangle the numeric features.",
+        "metrics": [
+          {
+            "name": "AUC",
+            "value": 0.5726,
+            "unit": null
+          },
+          {
+            "name": "AUC std",
+            "value": 0.0042,
+            "unit": null
+          },
+          {
+            "name": "F1-macro",
+            "value": 0.4698,
+            "unit": null
+          },
+          {
+            "name": "accuracy",
+            "value": 0.5943,
+            "unit": null
+          },
+          {
+            "name": "dim",
+            "value": 384,
+            "unit": null
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": "cmw402j7g00253ounv5ty64yx",
+        "title": "C: TabPFN frozen embedder + MLP",
+        "summary": "TabPFN used as a frozen embedder (context capped at 10k rows, n_estimators=2).",
+        "status": "planned",
+        "notes": "## Setup\n\n- `embeddings/embed_tabpfn.py` is ready (context_max 10000, batch 4096, n_estimators 2).\n\n## Command\n\n```bash\nexport TABPFN_TOKEN=<key>\nuv run python exp/Tab_exp/ablations/representation_bakeoff/run_bakeoff.py --only tabpfn\n```\n\n**Status:** not evaluated, because the `tabpfn 8.x` weights require accepting Prior Labs' license and obtaining a token.",
+        "metrics": [],
+        "children": []
+      }
+    ]
+  }
+]
